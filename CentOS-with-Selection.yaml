@@ -30,7 +30,6 @@ resources:
   VM-01:
     type: Cloud.Machine
     properties:
-      customizationSpec: Linux-CS
       image: '${input.VMImage}'
       flavor: '${input.VMSize}'
       name: '${input.VMName}'
@@ -38,7 +37,7 @@ resources:
         - network: '${resource["VM-Network_1"].id}'
           assignment: static
   VM-Network_1:
-    type: Cloud.vSphere.Network
+    type: Cloud.Network
     properties:
       networkType: existing
       name: '${input.VMNetwork}'

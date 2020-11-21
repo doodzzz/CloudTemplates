@@ -9,7 +9,6 @@ inputs:
     title: Operating System Selection
     description: Select the Operating System
     enum:
-      - CentOS-Base
       - CentOS-CloudInit
   VMSize:
     type: string

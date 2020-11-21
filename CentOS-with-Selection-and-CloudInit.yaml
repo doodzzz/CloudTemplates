@@ -62,7 +62,7 @@ resources:
         - hostnamectl set-hostname ${input.VMName}
         - PASS=${input.VMUserPassword}
         - echo ${input.VMUser}:$PASS | /usr/sbin/chpasswd
-        - set -i "s/PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+        - sed -i "s/PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
         - systemctl restart sshd
   VM-Network_1:
     type: Cloud.Network

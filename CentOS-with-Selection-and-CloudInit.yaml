@@ -1,0 +1,48 @@
+formatVersion: 1
+inputs:
+  VMName:
+    type: string
+    title: Name of the VM
+    description: Enter the name of the VM
+  VMImage:
+    type: string
+    title: Operating System Selection
+    description: Select the Operating System
+    enum:
+      - CentOS-Base
+      - CentOS-CloudInit
+  VMSize:
+    type: string
+    title: Sizing Selection
+    description: Select the size of the VM
+    enum:
+      - Small-VM
+      - Medium-VM
+      - Large-VM
+  VMNetwork:
+    type: string
+    title: Network Selection
+    description: Select the network to connect to
+    enum:
+      - vRA-App
+      - vRA-Web
+resources:
+  VM-01:
+    type: Cloud.Machine
+    properties:
+      image: '${input.VMImage}'
+      flavor: '${input.VMSize}'
+      name: '${input.VMName}'
+      networks:
+        - network: '${resource["VM-Network_1"].id}'
+          assignment: static
+      cloudConfig: |
+        runcmd:
+        - hostnamectl set-hostname ${input.VMName}
+  VM-Network_1:
+    type: Cloud.Network
+    properties:
+      networkType: existing
+      name: '${input.VMNetwork}'
+      constraints:
+        - tag: '${input.VMNetwork}'

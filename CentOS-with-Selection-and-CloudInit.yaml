@@ -25,6 +25,22 @@ inputs:
     enum:
       - vRA-App
       - vRA-Web
+  VMUser:
+    type: string
+    maxLength: 10
+    minLength: 5
+    title: Username for SSH user
+    description: The username you would like to have for the SSH user account (minimum 5 characters | maximum 10 characters)
+    default: USERNAME
+  VMUserPassword:
+    type: string
+    maxLength: 15
+    minLength: 8
+    pattern: '[a-zA-Z0-9@#$]+'
+    encrypted: true
+    default: PASSWORD
+    title: Account password
+    description: The password you would like to use for the SSH user account (minimum 8 characters | maximum 15 characters)
 resources:
   VM-01:
     type: Cloud.Machine
@@ -36,12 +52,22 @@ resources:
         - network: '${resource["VM-Network_1"].id}'
           assignment: static
       cloudConfig: |
+        #cloud-config
+        users:
+          - name: ${input.VMUser}
+            sudo: ['ALL=(ALL) NOPASSWD:ALL']
+            groups: [wheel]
+            shell: /bin/bash
         runcmd:
         - hostnamectl set-hostname ${input.VMName}
+        - PASS=${input.VMUserPassword}
+        - echo ${input.VMUser}:$PASS | /usr/sbin/chpasswd
+        - set -i "s/PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
+        - systemctl restart sshd
   VM-Network_1:
     type: Cloud.Network
     properties:
       networkType: existing
       name: '${input.VMNetwork}'
       constraints:
-        - tag: '${input.VMNetwork}'
+        - tag: '${input.VMNetwork}'1`

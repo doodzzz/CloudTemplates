@@ -1,0 +1,72 @@
+formatVersion: 1
+inputs:
+  VMName:
+    type: string
+    title: Name of the VM
+    minLength: 6
+    maxLength: 16
+    description: 'Enter the name of the VM (minimum 6 characters, maximum 15 characters)'
+  VMImage:
+    type: string
+    title: Operating System Selection
+    description: Select the Operating System
+    enum:
+      - Win2k19-Sysprep
+  VMSize:
+    type: string
+    title: Sizing Selection
+    description: Select the size of the VM
+    enum:
+      - Small-VM
+      - Medium-VM
+      - Large-VM
+  VMNetwork:
+    type: string
+    title: Network Selection
+    description: Select the network to connect to
+    enum:
+      - vRA-App
+      - vRA-Web
+  VMUser:
+    type: string
+    maxLength: 10
+    minLength: 5
+    title: Username for RDP Access
+    description: The username you would like to have for the RDP user account (minimum 5 characters | maximum 10 characters)
+    default: USERNAME
+  VMUserPassword:
+    type: string
+    maxLength: 15
+    minLength: 8
+    pattern: '[a-zA-Z0-9@#$]+'
+    encrypted: true
+    default: PASSWORD
+    title: Account password
+    description: The password you would like to use for the SSH user account (minimum 8 characters | maximum 15 characters)
+resources:
+  VM-WIN:
+    type: Cloud.Machine
+    properties:
+      image: '${input.VMImage}'
+      flavor: '${input.VMSize}'
+      name: '${input.VMName}'
+      networks:
+        - network: '${resource["VM-Network_1"].id}'
+          assignment: dynamic
+      remoteAccess:
+        username: '${input.VMUser}'
+        password: '${input.VMUserPassword}'
+        authentication: usernamePassword
+      cloudConfig: |
+        #cloud_config
+          set_hostname: '${input.VMName}'
+        #ps1_sysnative
+          New-Item $env:SystemDrive\powershell_multipart.txt -type file -ErrorAction SilentlyContinue
+          Install-WindowsFeature -name Web-Server -IncludeManagementTools
+  VM-Network_1:
+    type: Cloud.Network
+    properties:
+      networkType: existing
+      name: '${input.VMNetwork}'
+      constraints:
+        - tag: '${input.VMNetwork}'

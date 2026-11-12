@@ -1,0 +1,417 @@
+# =============================================================================
+# VCF Automation 9.1
+# An "All Apps" organization blueprint that provisions two VMs for MSSQL FCI.
+# This is very minimalistic and simple blueprint to showcase functionality.
+# =============================================================================
+formatVersion: 2
+
+inputs:
+  # --- Where the VMs go -------------------------------------------------------
+  namespace:
+    type: string
+    title: vSphere Namespace
+    description: The vSphere Namespace that receives the VMs and disks.
+    maxLength: 63
+    pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+  vmClass:
+    type: string
+    title: VM class
+    description: A VM class assigned to the namespace, for example sql-fci-8c64g.
+    maxLength: 253
+    pattern: '^[a-z0-9]([-.a-z0-9]*[a-z0-9])?$'
+  imageName:
+    type: string
+    title: Windows image
+    description: The image ID (vmi-...) or the image name, as listed in the namespace.
+    minLength: 1
+    maxLength: 253
+  storageClass:
+    type: string
+    title: Storage class
+    description: Used for the VM home, the OS disk and the three shared disks.
+    maxLength: 253
+    pattern: '^[a-z0-9]([-.a-z0-9]*[a-z0-9])?$'
+
+  # --- VM names (also the Windows computer names) -----------------------------
+  vm1Name:
+    type: string
+    title: VM 1 name
+    description: Also the Windows computer name. Lower-case letters, digits and hyphens, 15 characters at most.
+    maxLength: 15
+    pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+  vm2Name:
+    type: string
+    title: VM 2 name
+    description: Also the Windows computer name. Lower-case letters, digits and hyphens, 15 characters at most.
+    maxLength: 15
+    pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+
+  # --- Networks (existing Subnets in the namespace) ---------------------------
+  primaryNetwork:
+    type: string
+    title: Public network
+    description: Name of the Subnet for the public NIC.
+    maxLength: 63
+    pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+  heartbeatNetwork:
+    type: string
+    title: Heartbeat network
+    description: Name of the Subnet for the heartbeat NIC.
+    maxLength: 63
+    pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+
+  # --- VM 1 addresses -------------------------------------------------------------
+  vm1PublicIp:
+    type: string
+    title: VM 1 public IP address
+    description: Address with the Subnet's prefix length, for example 10.20.30.11/24.
+    pattern: '^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])/(3[0-2]|[12][0-9]|[1-9])$'
+  vm1PublicGateway:
+    type: string
+    title: VM 1 public gateway
+    description: For example 10.20.30.1.
+    pattern: '^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$'
+  vm1HeartbeatIp:
+    type: string
+    title: VM 1 heartbeat IP address
+    description: Address with the Subnet's prefix length, for example 192.168.50.11/24.
+    pattern: '^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])/(3[0-2]|[12][0-9]|[1-9])$'
+  vm1HeartbeatGateway:
+    type: string
+    title: VM 1 heartbeat gateway
+    description: Leave empty so the heartbeat NIC has no gateway.
+    default: ''
+    pattern: '^(((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]))?$'
+
+  # --- VM 2 addresses -------------------------------------------------------------
+  vm2PublicIp:
+    type: string
+    title: VM 2 public IP address
+    description: Address with the Subnet's prefix length, for example 10.20.30.12/24.
+    pattern: '^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])/(3[0-2]|[12][0-9]|[1-9])$'
+  vm2PublicGateway:
+    type: string
+    title: VM 2 public gateway
+    description: For example 10.20.30.1.
+    pattern: '^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])$'
+  vm2HeartbeatIp:
+    type: string
+    title: VM 2 heartbeat IP address
+    description: Address with the Subnet's prefix length, for example 192.168.50.12/24.
+    pattern: '^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])/(3[0-2]|[12][0-9]|[1-9])$'
+  vm2HeartbeatGateway:
+    type: string
+    title: VM 2 heartbeat gateway
+    description: Leave empty so the heartbeat NIC has no gateway.
+    default: ''
+    pattern: '^(((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9]))?$'
+
+  # --- Shared (RWX) disks -----------------------------------------------------------
+  disk1Size:
+    type: integer
+    title: Shared disk 1 size (GiB)
+    description: Attached to both VMs at SCSI 1:0.
+    minimum: 1
+    maximum: 63488
+  disk2Size:
+    type: integer
+    title: Shared disk 2 size (GiB)
+    description: Attached to both VMs at SCSI 1:1.
+    minimum: 1
+    maximum: 63488
+  disk3Size:
+    type: integer
+    title: Shared disk 3 size (GiB)
+    description: Attached to both VMs at SCSI 1:2.
+    minimum: 1
+    maximum: 63488
+
+  # --- Windows ---------------------------------------------------------------------
+  adminPassword:
+    type: string
+    title: Local Administrator password
+    description: Set on both VMs by Sysprep. Must meet the image's password policy.
+    encrypted: true
+    minLength: 8
+
+metadata:
+  deploymentSettings:
+    # Change running VMs through day-2 actions, not a blueprint re-apply.
+    disableUpdateDay2Action: true
+    hideDisabledDay2Actions: true
+
+resources:
+  vsphereNamespace:
+    type: CCI.Supervisor.Namespace
+    properties:
+      name: ${input.namespace}
+      existing: true
+
+  # --- Administrator password, read by Sysprep on both VMs ----------------------
+  adminSecret:
+    type: CCI.Supervisor.Resource
+    properties:
+      context: ${resource.vsphereNamespace.id}
+      manifest:
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: sysprep-${env.shortDeploymentId}
+        type: Opaque
+        stringData:
+          password: ${input.adminPassword}
+
+  # --- Shared disks: ReadWriteMany + volumeMode Block = clustered VMDK ---------
+  sharedDisk1:
+    type: CCI.Supervisor.Resource
+    properties:
+      context: ${resource.vsphereNamespace.id}
+      manifest:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: shared-${env.shortDeploymentId}-1
+        spec:
+          accessModes:
+            - ReadWriteMany
+          volumeMode: Block
+          storageClassName: ${input.storageClass}
+          resources:
+            requests:
+              storage: ${input.disk1Size}Gi
+
+  sharedDisk2:
+    type: CCI.Supervisor.Resource
+    properties:
+      context: ${resource.vsphereNamespace.id}
+      manifest:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: shared-${env.shortDeploymentId}-2
+        spec:
+          accessModes:
+            - ReadWriteMany
+          volumeMode: Block
+          storageClassName: ${input.storageClass}
+          resources:
+            requests:
+              storage: ${input.disk2Size}Gi
+
+  sharedDisk3:
+    type: CCI.Supervisor.Resource
+    properties:
+      context: ${resource.vsphereNamespace.id}
+      manifest:
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: shared-${env.shortDeploymentId}-3
+        spec:
+          accessModes:
+            - ReadWriteMany
+          volumeMode: Block
+          storageClassName: ${input.storageClass}
+          resources:
+            requests:
+              storage: ${input.disk3Size}Gi
+
+  # --- VM 1 ---------------------------------------------------------------------
+  vm1:
+    type: CCI.Supervisor.Resource
+    dependsOn:
+      - adminSecret
+      - sharedDisk1
+      - sharedDisk2
+      - sharedDisk3
+    properties:
+      context: ${resource.vsphereNamespace.id}
+      manifest:
+        apiVersion: vmoperator.vmware.com/v1alpha5
+        kind: VirtualMachine
+        metadata:
+          name: ${input.vm1Name}             # also the Windows computer name
+        spec:
+          className: ${input.vmClass}
+          imageName: ${input.imageName}      # VM Operator resolves the image kind
+          storageClass: ${input.storageClass}
+          powerState: PoweredOn              # powers on only after the shared disks attach
+          bootstrap:
+            sysprep:
+              sysprep:
+                guiUnattended:
+                  password:
+                    name: sysprep-${env.shortDeploymentId}
+                    key: password
+                  timeZone: 85               # GMT; VM Operator's own default
+                userData:
+                  fullName: Administrator
+                  orgName: Organization
+                identification:
+                  joinWorkgroup: WORKGROUP
+          network:
+            interfaces:
+              - name: public
+                network:
+                  apiVersion: crd.nsx.vmware.com/v1alpha1
+                  kind: Subnet
+                  name: ${input.primaryNetwork}
+                addresses:
+                  - ${input.vm1PublicIp}
+                gateway4: ${input.vm1PublicGateway}
+              - name: heartbeat
+                network:
+                  apiVersion: crd.nsx.vmware.com/v1alpha1
+                  kind: Subnet
+                  name: ${input.heartbeatNetwork}
+                addresses:
+                  - ${input.vm1HeartbeatIp}
+                # Empty field -> None: clear the gateway NSX reports for the Subnet.
+                gateway4: '${input.vm1HeartbeatGateway == "" ? "None" :input.vm1HeartbeatGateway}'
+          hardware:
+            scsiControllers:
+              - busNumber: 1
+                type: ParaVirtual
+                sharingMode: Physical
+          volumes:
+            - name: shared-disk-1
+              persistentVolumeClaim:
+                claimName: shared-${env.shortDeploymentId}-1
+              applicationType: MicrosoftWSFC
+              diskMode: IndependentPersistent
+              sharingMode: None
+              controllerType: SCSI
+              controllerBusNumber: 1
+              unitNumber: 0
+            - name: shared-disk-2
+              persistentVolumeClaim:
+                claimName: shared-${env.shortDeploymentId}-2
+              applicationType: MicrosoftWSFC
+              diskMode: IndependentPersistent
+              sharingMode: None
+              controllerType: SCSI
+              controllerBusNumber: 1
+              unitNumber: 1
+            - name: shared-disk-3
+              persistentVolumeClaim:
+                claimName: shared-${env.shortDeploymentId}-3
+              applicationType: MicrosoftWSFC
+              diskMode: IndependentPersistent
+              sharingMode: None
+              controllerType: SCSI
+              controllerBusNumber: 1
+              unitNumber: 2
+      wait:
+        conditions:
+          - type: VirtualMachineCreated
+            status: 'True'
+          - type: VirtualMachineNetworkReady
+            status: 'True'
+
+  # --- VM 2: same as VM 1 except the name and addresses ----------------------------
+  vm2:
+    type: CCI.Supervisor.Resource
+    dependsOn:
+      - adminSecret
+      - sharedDisk1
+      - sharedDisk2
+      - sharedDisk3
+    properties:
+      context: ${resource.vsphereNamespace.id}
+      manifest:
+        apiVersion: vmoperator.vmware.com/v1alpha5
+        kind: VirtualMachine
+        metadata:
+          name: ${input.vm2Name}
+        spec:
+          className: ${input.vmClass}
+          imageName: ${input.imageName}
+          storageClass: ${input.storageClass}
+          powerState: PoweredOn
+          bootstrap:
+            sysprep:
+              sysprep:
+                guiUnattended:
+                  password:
+                    name: sysprep-${env.shortDeploymentId}
+                    key: password
+                  timeZone: 85
+                userData:
+                  fullName: Administrator
+                  orgName: Organization
+                identification:
+                  joinWorkgroup: WORKGROUP
+          network:
+            interfaces:
+              - name: public
+                network:
+                  apiVersion: crd.nsx.vmware.com/v1alpha1
+                  kind: Subnet
+                  name: ${input.primaryNetwork}
+                addresses:
+                  - ${input.vm2PublicIp}
+                gateway4: ${input.vm2PublicGateway}
+              - name: heartbeat
+                network:
+                  apiVersion: crd.nsx.vmware.com/v1alpha1
+                  kind: Subnet
+                  name: ${input.heartbeatNetwork}
+                addresses:
+                  - ${input.vm2HeartbeatIp}
+                gateway4: '${input.vm2HeartbeatGateway == "" ? "None" :input.vm2HeartbeatGateway}'
+          hardware:
+            scsiControllers:
+              - busNumber: 1
+                type: ParaVirtual
+                sharingMode: Physical
+          volumes:
+            - name: shared-disk-1
+              persistentVolumeClaim:
+                claimName: shared-${env.shortDeploymentId}-1
+              applicationType: MicrosoftWSFC
+              diskMode: IndependentPersistent
+              sharingMode: None
+              controllerType: SCSI
+              controllerBusNumber: 1
+              unitNumber: 0
+            - name: shared-disk-2
+              persistentVolumeClaim:
+                claimName: shared-${env.shortDeploymentId}-2
+              applicationType: MicrosoftWSFC
+              diskMode: IndependentPersistent
+              sharingMode: None
+              controllerType: SCSI
+              controllerBusNumber: 1
+              unitNumber: 1
+            - name: shared-disk-3
+              persistentVolumeClaim:
+                claimName: shared-${env.shortDeploymentId}-3
+              applicationType: MicrosoftWSFC
+              diskMode: IndependentPersistent
+              sharingMode: None
+              controllerType: SCSI
+              controllerBusNumber: 1
+              unitNumber: 2
+      wait:
+        conditions:
+          - type: VirtualMachineCreated
+            status: 'True'
+          - type: VirtualMachineNetworkReady
+            status: 'True'
+
+outputs:
+  vm1Network:
+    value: ${resource.vm1.object.status.network.config.interfaces}
+  vm2Network:
+    value: ${resource.vm2.object.status.network.config.interfaces}
+  __deploymentOverview:
+    value: |
+      ### ${input.vm1Name} and ${input.vm2Name}
+      Namespace ${input.namespace}, class ${input.vmClass}, image ${input.imageName}
+
+      | VM | Public (${input.primaryNetwork}) | Heartbeat (${input.heartbeatNetwork}) |
+      |---|---|---|
+      | ${input.vm1Name} | ${input.vm1PublicIp} via ${input.vm1PublicGateway} | ${input.vm1HeartbeatIp} |
+      | ${input.vm2Name} | ${input.vm2PublicIp} via ${input.vm2PublicGateway} | ${input.vm2HeartbeatIp} |
+
+      Shared disks at SCSI 1:0, 1:1 and 1:2: ${input.disk1Size}, ${input.disk2Size} and ${input.disk3Size} GiB.
